@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+    tools {
+        maven "mymaven"
+    }
+    stages {
+        stage ("Code") {
+            steps {
+                git 'https://github.com/kaverimailari/one'
+            }
+        }
+        stage ("CQA") {
+            steps {
+            withSonarQubeEnv(installationName: 'mysonar', credentialsId: 'sonarr') {
+                    sh '''
+                       mvn sonar:sonar \
+                    -Dsonar.projectKey=mysonar \
+                    -Dsonar.host.url=http://35.95.130.186:9000 \
+                    -Dsonar.login=ff36056f2fcb2801b3d599fe7fe0d634d7feeffc
+                      '''
+               }
+            }
+        }
+        stage ("Build&Test") {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage ("Artifact") {
+            steps {
+                nexusArtifactUploader artifacts: [[artifactId: 'myweb', classifier: '', file: 'target/myweb-8.7.3.war', type: 'war']], credentialsId: 'nexus', groupId: 'in.javahome', nexusUrl: '34.221.81.89:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'myrepo', version: '8.7.3'
+            }
+        }
+        stage ("Deploy") {
+            steps {
+                deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'appserver', path: '', url: 'http://34.211.216.127:8080/')], contextPath: 'Myapp', war: 'target/*.war'
+            }
+        }
+    }
+    post {
+        always {
+            echo 'This will print anyways'
+        }
+    }
+}
